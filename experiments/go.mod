@@ -2,7 +2,10 @@ module copa-playground
 
 go 1.25.1
 
-require github.com/project-copacetic/copacetic v0.12.0
+require (
+	github.com/project-copacetic/copacetic v0.12.0
+	github.com/sirupsen/logrus v1.9.3
+)
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
@@ -101,7 +104,6 @@ require (
 	github.com/samber/lo v1.51.0 // indirect
 	github.com/secure-systems-lab/go-securesystemslib v0.9.1 // indirect
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
-	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/tonistiigi/dchapes-mode v0.0.0-20250318174251-73d941a28323 // indirect
@@ -142,3 +144,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apimachinery v0.34.1 // indirect
 )
+
+replace github.com/moby/buildkit => github.com/moby/buildkit v0.25.1

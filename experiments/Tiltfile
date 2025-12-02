@@ -1,0 +1,56 @@
+# Tiltfile for vuln-patcher development
+
+# Allow Tilt to run in a Kubernetes cluster
+allow_k8s_contexts('default')
+
+k8s_yaml("./k8s/registry.yaml")
+
+k8s_resource(
+    "dev-registry",
+    port_forwards=5000,
+)
+
+# Build the Docker image
+docker_build(
+    'vuln-patcher:latest',
+    context='.',
+    dockerfile='./Dockerfile',
+)
+
+# Deploy Kubernetes resources
+k8s_yaml(['k8s/buildkit.yaml', 'k8s/deployment.yaml'])
+
+# BuildKit - must start first
+k8s_resource(
+    'buildkitd',
+    labels=['infra']
+)
+
+# vuln-patcher - depends on buildkitd
+k8s_resource(
+    'vuln-patcher',
+    port_forwards='8080:8080',
+    resource_deps=['buildkitd'],
+    labels=['app']
+)
+
+
+print("""
+╔════════════════════════════════════════════════════════════════╗
+║                    Vuln Patcher Development                    ║
+╠════════════════════════════════════════════════════════════════╣
+║                                                                ║
+║  Architecture:                                                 ║
+║    buildkitd (K8s) ← tcp://buildkitd:1234 ← vuln-patcher      ║
+║                                                                ║
+║  Resources:                                                    ║
+║    • buildkitd      - BuildKit daemon (in-cluster)            ║
+║    • vuln-patcher   - Main application                        ║
+║    • run-patcher    - Manually trigger patching               ║
+║    • view-logs      - View application logs                   ║
+║                                                                ║
+║  Test connection:                                              ║
+║    kubectl exec -it deploy/vuln-patcher -- nc -zv buildkitd 1234
+║                                                                ║
+╚════════════════════════════════════════════════════════════════╝
+""")

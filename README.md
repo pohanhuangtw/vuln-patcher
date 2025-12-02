@@ -6,15 +6,19 @@
 This project will create a controller to watch the sbomscanner's vulnerability cr and create a patch image and upload to the registry.
 
 ## Flow
-1. Watch and reconcile `sbomscanner` vulnerability CRs with a controller (on create/update).
-2. For eligible CRs (e.g. vulnerable and not yet patched), run the `copa patch` CLI using the image reference (and SBOM info if needed) to generate a patched image.
-3. Push the patched image to the configured registry.
-4. Create and maintain a new CRD (e.g., `PatchStatus`) to track the patching status of each `VulnerabilityReport`. This CRD will:
+1. Deploy `BuildKit` as a Kubernetes Deployment to ensure it is available for patching operations.
+   - This Deployment will manage a shared `BuildKit` instance that can be used by multiple patching operations.
+2. Watch and reconcile `sbomscanner` vulnerability CRs with a controller (on create/update).
+3. For eligible CRs (e.g. vulnerable and not yet patched):
+   - Create a temporary Pod (e.g., `patxxx`) that connects to the `BuildKit` instance.
+   - Run the `copa patch` CLI within the Pod using the image reference (and SBOM info if needed) to generate a patched image.
+4. Push the patched image to the configured registry.
+5. Create and maintain a new CRD (e.g., `PatchStatus`) to track the patching status of each `VulnerabilityReport`. This CRD will:
    - Reference the `VulnerabilityReport` by name and namespace.
    - Store the generation of the `VulnerabilityReport` to determine if it is up to date.
    - Include fields for the patched image reference, patch status, and any relevant metadata.
-5. On each reconciliation, compare the generation of the `VulnerabilityReport` with the stored generation in the `PatchStatus` CRD to decide if re-patching is needed.
-6. Update the `PatchStatus` CRD with the latest patching information after processing.
+6. On each reconciliation, compare the generation of the `VulnerabilityReport` with the stored generation in the `PatchStatus` CRD to decide if re-patching is needed.
+7. Update the `PatchStatus` CRD with the latest patching information after processing.
 
 ### How to reconcile the vulnerability changes?
 1. Create a new CRD (e.g., `PatchStatus`) to track the patching status of each `VulnerabilityReport`.
@@ -27,5 +31,12 @@ This project will create a controller to watch the sbomscanner's vulnerability c
 - Uses `copa` as an external CLI tool (via `os/exec`), there is no stable Go API integration yet.
 - Scope is limited to images referenced by the vulnerability CRs; it does not scan or discover images by itself, and re-patching decisions are based on comparing current vs previously-seen vulnerability state.
 
+## Implementation limitation
+- no TLS between pod and buildkit
+- patch amd64
+- IgnoreError: true, // Ignore errors if packages are not available in repos
+- Pull and operate with public registry
+
 ## Reference
 - [kubespace](https://kubescape.io/) uses a CLI-based approach to patch images, not Kubernetes CRs.
+   - It uses `BuildKit` as a service, so many `kubescape` commands can share the same `BuildKit` instance.

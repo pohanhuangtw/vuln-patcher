@@ -1,0 +1,25 @@
+# Git files
+.git
+.gitignore
+
+# Documentation
+*.md
+README*
+
+# Build artifacts
+copa-test
+vuln-patcher
+
+# Kubernetes files
+k8s/
+Tiltfile
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
