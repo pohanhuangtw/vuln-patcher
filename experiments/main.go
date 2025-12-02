@@ -24,34 +24,43 @@ func main() {
 }
 
 func runCopa(ctx context.Context) error {
-	// Define paths
-	registry := "dev-registry.default.svc.cluster.local:5000"
-	targetImage := fmt.Sprintf("%s/nginx:1.25.3-alpine3.18", registry)
-	patchedTag := fmt.Sprintf("%s/nginx:1.25.3-alpine3.18-patched", registry)
-	tmpDir := "/tmp/copa-image-input"
-
-	// Clean up previous run if exists
-	os.RemoveAll(tmpDir)
-
 	// Get BuildKit address
-	bkAddr := os.Getenv("BUILDKIT_HOST")
-	if bkAddr == "" {
+	inK8sCluster := true
+	var (
+		bkAddr   string
+		registry string
+	)
+	if inK8sCluster {
 		bkAddr = "tcp://buildkitd:1234"
+		registry = "dev-registry.default.svc.cluster.local:5000"
+	} else {
+		bkAddr = "docker-container://buildx_buildkit_neuvector0"
+		registry = "docker.io"
 	}
+	// Define paths
+	targetImage := fmt.Sprintf("%s/nginx:1.25.3", registry)
+	patchedTag := fmt.Sprintf("%s/nginx:1.25.3-patched", registry)
 
 	opts := &types.Options{
-		Image:       targetImage,
-		Report:      "./vul-report/report.json",
+		Image:      targetImage,
+		Report:     "./vul-report/report.json",
+		PatchedTag: patchedTag,
+
+		Timeout: 15 * time.Minute,
+
 		Scanner:     "trivy",
-		PatchedTag:  patchedTag,
-		Timeout:     15 * time.Minute,
 		IgnoreError: true,
-		Format:      "openvex",
-		Output:      "./vul-report/patched-report.json",
-		BkAddr:      bkAddr,
-		PkgTypes:    "os",
-		Loader:      "docker",
-		// Platforms:   []string{"linux/amd64"},
+
+		Format:   "openvex",
+		Output:   "./vul-report/patched-report.json",
+		Progress: "plain",
+
+		BkAddr:    bkAddr,
+		Loader:    "docker",
+		Platforms: []string{"linux/amd64"},
+		Push:      true,
+
+		PkgTypes: "os,library",
 	}
 
 	log.Info("Starting patching process...")
