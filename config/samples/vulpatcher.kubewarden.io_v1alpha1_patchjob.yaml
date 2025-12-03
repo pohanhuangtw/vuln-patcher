@@ -1,0 +1,9 @@
+apiVersion: vulpatcher.kubewarden.io.vulpatcher.kubewarden.io/v1alpha1
+kind: PatchJob
+metadata:
+  labels:
+    app.kubernetes.io/name: vuln-patcher
+    app.kubernetes.io/managed-by: kustomize
+  name: patchjob-sample
+spec:
+  # TODO(user): Add fields here

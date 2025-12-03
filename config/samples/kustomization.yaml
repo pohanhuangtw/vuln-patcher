@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- vulpatcher.kubewarden.io_v1alpha1_patchjob.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples
