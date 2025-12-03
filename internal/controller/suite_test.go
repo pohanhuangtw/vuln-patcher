@@ -32,6 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	sbomscannerv1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	vulpatcherkubewardeniov1alpha1 "github.com/pohanhuangtw/vuln-patcher/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
@@ -60,6 +61,8 @@ var _ = BeforeSuite(func() {
 
 	var err error
 	err = vulpatcherkubewardeniov1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+	err = sbomscannerv1alpha1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme

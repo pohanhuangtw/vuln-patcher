@@ -3,7 +3,7 @@
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
 cliVersion: 4.10.1
-domain: vulpatcher.kubewarden.io
+domain: vulpatcher
 layout:
 - go.kubebuilder.io/v4
 projectName: vuln-patcher
@@ -13,8 +13,8 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: vulpatcher.kubewarden.io
-  group: vulpatcher.kubewarden.io
+  domain: vulpatcher
+  group: kubewarden.io
   kind: PatchJob
   path: github.com/pohanhuangtw/vuln-patcher/api/v1alpha1
   version: v1alpha1

@@ -41,6 +41,7 @@ This project will create a controller to watch the sbomscanner's vulnerability c
 - IgnoreError: true, // Ignore errors if packages are not available in repos
 - Pull and operate with public registry
 - Use root for patching
+- User needs to manually install buildkit
 
 ## Reference
 - [kubespace](https://kubescape.io/) uses a CLI-based approach to patch images, not Kubernetes CRs.

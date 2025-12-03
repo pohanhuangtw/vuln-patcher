@@ -5,7 +5,7 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - vulpatcher.kubewarden.io.vulpatcher.kubewarden.io
+  - vulpatcher.kubewarden.io
   resources:
   - patchjobs
   verbs:
@@ -17,16 +17,24 @@ rules:
   - update
   - watch
 - apiGroups:
-  - vulpatcher.kubewarden.io.vulpatcher.kubewarden.io
+  - vulpatcher.kubewarden.io
   resources:
   - patchjobs/finalizers
   verbs:
   - update
 - apiGroups:
-  - vulpatcher.kubewarden.io.vulpatcher.kubewarden.io
+  - vulpatcher.kubewarden.io
   resources:
   - patchjobs/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - storage.sbomscanner.kubewarden.io
+  resources:
+  - vulnerabilityreports
+  verbs:
+  - get
+  - list
+  - watch

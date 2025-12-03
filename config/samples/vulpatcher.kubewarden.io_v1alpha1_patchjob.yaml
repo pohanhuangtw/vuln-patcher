@@ -1,4 +1,4 @@
-apiVersion: vulpatcher.kubewarden.io.vulpatcher.kubewarden.io/v1alpha1
+apiVersion: vulpatcher.kubewarden.io/v1alpha1
 kind: PatchJob
 metadata:
   labels:

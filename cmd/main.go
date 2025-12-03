@@ -19,6 +19,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"log/slog"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -35,8 +36,10 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	sbomscannerv1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
 	vulpatcherkubewardeniov1alpha1 "github.com/pohanhuangtw/vuln-patcher/api/v1alpha1"
 	"github.com/pohanhuangtw/vuln-patcher/internal/controller"
+	"github.com/pohanhuangtw/vuln-patcher/internal/handlers"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -49,6 +52,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(vulpatcherkubewardeniov1alpha1.AddToScheme(scheme))
+	utilruntime.Must(sbomscannerv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -181,6 +185,9 @@ func main() {
 	if err := (&controller.PatchJobReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		PatchContainersHandler: handlers.NewPatchContainersHandler(
+			mgr.GetClient(), mgr.GetScheme(), "./vul-report", "ghcr.io/aquasecurity/trivy-java-db",
+			slog.New(slog.NewTextHandler(os.Stdout, nil))),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PatchJob")
 		os.Exit(1)
