@@ -1,7 +1,7 @@
 # vuln-patcher
 
 ## Problem
-[sbomscanner](https://github.com/kubewarden/sbomscanner) is able to discover vulnerabilities, user usually found the result confusing, and not easy to patch it. copa https://github.com/project-copacetic/copacetic a cli to patch the containers tool may help it, but it does not implement in the k8s env.
+[sbomscanner](https://github.com/kubewarden/sbomscanner) is able to discover vulnerabilities, user usually found the result confusing, and not easy to patch it. [copa](https://github.com/project-copacetic/copacetic) a cli to patch the containers tool may help it, but it does not implement in the k8s env.
 
 This project will create a controller to watch the sbomscanner's vulnerability cr and create a patch image and upload to the registry.
 
@@ -9,21 +9,25 @@ This project will create a controller to watch the sbomscanner's vulnerability c
 1. Deploy `BuildKit` as a Kubernetes Deployment to ensure it is available for patching operations.
    - This Deployment will manage a shared `BuildKit` instance that can be used by multiple patching operations.
 2. Watch and reconcile `sbomscanner` vulnerability CRs with a controller (on create/update).
-3. For eligible CRs (e.g. vulnerable and not yet patched):
-   - Create a temporary Pod (e.g., `patxxx`) that connects to the `BuildKit` instance.
-   - Run the `copa patch` CLI within the Pod using the image reference (and SBOM info if needed) to generate a patched image.
-4. Push the patched image to the configured registry.
-5. Create and maintain a new CRD (e.g., `PatchStatus`) to track the patching status of each `VulnerabilityReport`. This CRD will:
+3. Publish events for eligible CRs (e.g., vulnerable and not yet patched) to a NATS subject.
+   - NATS acts as a message broker, enabling distributed and scalable event handling.
+4. Create a NATS subscriber to process events:
+   - The subscriber listens to the NATS subject and processes events sequentially or in parallel, depending on the configuration.
+   - For each event:
+     - Create a temporary Pod (e.g., `patxxx`) that connects to the `BuildKit` instance.
+     - Run the `copa patch` CLI within the Pod using the image reference (and SBOM info if needed) to generate a patched image.
+5. Push the patched image to the configured registry.
+6. Create and maintain a new CRD (e.g., `PatchJob`) to track the patching status of each `VulnerabilityReport`. This CRD will:
    - Reference the `VulnerabilityReport` by name and namespace.
    - Store the generation of the `VulnerabilityReport` to determine if it is up to date.
    - Include fields for the patched image reference, patch status, and any relevant metadata.
-6. On each reconciliation, compare the generation of the `VulnerabilityReport` with the stored generation in the `PatchStatus` CRD to decide if re-patching is needed.
-7. Update the `PatchStatus` CRD with the latest patching information after processing.
+7. On each reconciliation, compare the generation of the `VulnerabilityReport` with the stored generation in the `PatchJob` CRD to decide if re-patching is needed.
+8. Update the `PatchJob` CRD with the latest patching information after processing.
 
 ### How to reconcile the vulnerability changes?
-1. Create a new CRD (e.g., `PatchStatus`) to track the patching status of each `VulnerabilityReport`.
+1. Create a new CRD (e.g., `PatchJob`) to track the patching status of each `VulnerabilityReport`.
 2. Use the generation of the `VulnerabilityReport` to determine if it has been updated since the last patching operation.
-3. Ensure that the `PatchStatus` CRD is updated whenever a patch is applied or when the `VulnerabilityReport` changes.
+3. Ensure that the `PatchJob` CRD is updated whenever a patch is applied or when the `VulnerabilityReport` changes.
 
 ## Limitation
 - Only builds and pushes patched images; it does **not** automatically update Deployments/Pods to use the new image (at least in the first version).
