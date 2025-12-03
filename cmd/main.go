@@ -186,7 +186,7 @@ func main() {
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 		PatchContainersHandler: handlers.NewPatchContainersHandler(
-			mgr.GetClient(), mgr.GetScheme(), "./vul-report", "ghcr.io/aquasecurity/trivy-java-db",
+			mgr.GetClient(), mgr.GetScheme(), "ghcr.io/aquasecurity/trivy-java-db",
 			slog.New(slog.NewTextHandler(os.Stdout, nil))),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PatchJob")

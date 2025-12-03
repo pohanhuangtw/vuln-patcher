@@ -65,13 +65,6 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			log.Info("no VulnerabilityReport found for PatchJob",
 				"patchJob", req.NamespacedName)
-
-			err := r.PatchContainersHandler.Handle(ctx, req.NamespacedName)
-			if err != nil {
-				log.Error(err, "error patching containers")
-				return ctrl.Result{}, err
-			}
-
 			return ctrl.Result{}, nil
 		}
 
@@ -85,6 +78,11 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		if apierrors.IsNotFound(err) {
 			// PatchJob was deleted, nothing to do.
 			log.V(1).Info("PatchJob not found, nothing to do")
+			err := r.PatchContainersHandler.Handle(ctx, req.NamespacedName)
+			if err != nil {
+				log.Error(err, "error patching containers")
+				return ctrl.Result{}, err
+			}
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err

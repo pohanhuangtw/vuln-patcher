@@ -1,17 +1,15 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
-	"time"
+	"os/exec"
 
 	sbomscannerv1alpha1 "github.com/kubewarden/sbomscanner/api/storage/v1alpha1"
-
-	"github.com/project-copacetic/copacetic/pkg/patch"
-	"github.com/project-copacetic/copacetic/pkg/types"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,16 +18,14 @@ import (
 type PatchContainersHandler struct {
 	k8sClient             client.Client
 	scheme                *runtime.Scheme
-	workDir               string
 	trivyJavaDBRepository string
 	logger                *slog.Logger
 }
 
-func NewPatchContainersHandler(k8sClient client.Client, scheme *runtime.Scheme, workDir string, trivyJavaDBRepository string, logger *slog.Logger) *PatchContainersHandler {
+func NewPatchContainersHandler(k8sClient client.Client, scheme *runtime.Scheme, trivyJavaDBRepository string, logger *slog.Logger) *PatchContainersHandler {
 	return &PatchContainersHandler{
 		k8sClient:             k8sClient,
 		scheme:                scheme,
-		workDir:               workDir,
 		trivyJavaDBRepository: trivyJavaDBRepository,
 		logger:                logger,
 	}
@@ -43,11 +39,11 @@ func (h *PatchContainersHandler) writeVulReportToTempFile(ctx context.Context, n
 	}
 
 	// 1. Write the vul-report as temp file
-	tempFile, err := os.CreateTemp(h.workDir, "vul-report-*.json")
+	tempFile, err := os.CreateTemp(os.TempDir(), "vul-report-*.json")
 	if err != nil {
 		return "", err
 	}
-	defer os.Remove(tempFile.Name())
+	defer tempFile.Close()
 
 	// 2. Write the vul-report to the temp file
 	reportJSON, err := json.Marshal(vr.Report)
@@ -61,52 +57,70 @@ func (h *PatchContainersHandler) writeVulReportToTempFile(ctx context.Context, n
 	return tempFile.Name(), nil
 }
 
-func runCopa(ctx context.Context, reportFile string) error {
+func (h *PatchContainersHandler) runCopaCLI(ctx context.Context, vulReport string) error {
 	registry := "dev-registry.default.svc.cluster.local:5000"
+	bkAddr := "tcp://buildkitd:1234"
 	targetImage := fmt.Sprintf("%s/nginx:1.25.3", registry)
 	patchedTag := fmt.Sprintf("%s/nginx:1.25.3-patched", registry)
 
-	copaReportFile, err := os.CreateTemp("", "copa-report-*.json")
+	args := []string{
+		"patch",
+		"--image", targetImage,
+		"--report", vulReport,
+		"--tag", patchedTag,
+		"--addr", bkAddr,
+		"--loader", "docker",
+		"--scanner", "trivy",
+		"--format", "openvex",
+		"--timeout", "15m",
+		"--platform", "linux/amd64",
+		"--push",
+		"--ignore-errors",
+	}
+
+	h.logger.Info("running copa patch",
+		"image", targetImage,
+		"patchedTag", patchedTag,
+		"report", vulReport,
+		"buildkit", bkAddr,
+	)
+
+	cmd := exec.CommandContext(ctx, "/copa", args...)
+
+	// Capture stdout and stderr to log them
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+
+	// Log the output
+	if stdout.Len() > 0 {
+		h.logger.Info("copa stdout", "output", stdout.String())
+	}
+	if stderr.Len() > 0 {
+		h.logger.Info("copa stderr", "output", stderr.String())
+	}
+
 	if err != nil {
-		return err
-	}
-	defer os.Remove(copaReportFile.Name())
-
-	opts := &types.Options{
-		Image:      targetImage,
-		Report:     reportFile,
-		PatchedTag: patchedTag,
-
-		Timeout: 15 * time.Minute,
-
-		Scanner:     "trivy",
-		IgnoreError: true,
-
-		Format:   "openvex",
-		Output:   copaReportFile.Name(),
-		Progress: "plain",
-
-		BkAddr:    "tcp://buildkitd:1234",
-		Loader:    "docker",
-		Platforms: []string{"linux/amd64"},
-		Push:      true,
-
-		PkgTypes: "os,library",
+		h.logger.Error("copa failed", "error", err, "exitCode", cmd.ProcessState.ExitCode())
+		return fmt.Errorf("copa patch failed: %w", err)
 	}
 
-	return patch.Patch(ctx, opts)
+	h.logger.Info("copa patch completed successfully",
+		"patchedImage", patchedTag,
+	)
+
+	return nil
 }
 
 // Hande to write the vul-report as temp file and run the copa patch command
 func (h *PatchContainersHandler) Handle(ctx context.Context, namespacedName client.ObjectKey) error {
-
-	// 1. Write the vul-report to the temp file
-	tempFile, err := h.writeVulReportToTempFile(ctx, namespacedName)
+	vulReport, err := h.writeVulReportToTempFile(ctx, namespacedName)
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tempFile)
+	defer os.Remove(vulReport)
 
-	// 2. Run the copa patch command\
-	return runCopa(ctx, tempFile)
+	return h.runCopaCLI(ctx, vulReport)
 }

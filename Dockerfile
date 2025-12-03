@@ -14,6 +14,9 @@ RUN go mod download
 # Copy the Go source (relies on .dockerignore to filter)
 COPY . .
 
+RUN curl -fsSL https://github.com/project-copacetic/copacetic/releases/download/v0.12.0/copa_0.12.0_linux_amd64.tar.gz | tar -xz -C /workspace/ \
+    && chmod +x /workspace/copa
+
 # Build
 # the GOARCH has no default value to allow the binary to be built according to the host where the command
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
@@ -26,6 +29,8 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o ma
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY --from=builder /workspace/manager .
+COPY --from=builder /workspace/copa .
+
 USER 65532:65532
 
 ENTRYPOINT ["/manager"]

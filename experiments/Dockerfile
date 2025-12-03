@@ -29,6 +29,10 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 
+RUN curl -fsSL https://github.com/project-copacetic/copacetic/releases/download/v0.12.0/copa_0.12.0_linux_amd64.tar.gz -o /app/copa.tar.gz
+RUN tar -xzvf /app/copa.tar.gz -C /app/
+RUN chmod +x /app/copa
+
 # Create directories for reports
 RUN mkdir -p /app/vul-report
 COPY vul-report/ /app/vul-report/
