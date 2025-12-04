@@ -36,14 +36,23 @@ This project will create a controller to watch the sbomscanner's vulnerability c
 - Scope is limited to images referenced by the vulnerability CRs; it does not scan or discover images by itself, and re-patching decisions are based on comparing current vs previously-seen vulnerability state.
 
 ## Implementation limitation
-- no TLS between pod and buildkit
-- patch amd64
+- no TLS between pod and buildkitin
 - IgnoreError: true, // Ignore errors if packages are not available in repos
 - Pull and operate with public registry
 - Use root for patching
 - User needs to manually install buildkit
 - Use copa cli not lib, because the conflict issue with docker
 - Does not support sbomscanner report format, will patch the upstream
+   - manually transform, should patch the upstream to accept the general form
+- currently we can not scale, I think 
+
+## Status
+The initial version (v1) of `vuln-patcher` is complete with the following features:
+- Successfully integrates with `sbomscanner` to scan container images for vulnerabilities.
+- Automatically triggers `PatchJob` to patch vulnerable images and push the patched images to the configured registry.
+- Provides a functional workflow to manage vulnerabilities and generate patched images in a Kubernetes environment.
+
+This version establishes the foundation for automated vulnerability patching in Kubernetes, focusing on core functionality and integration.
 
 ## Reference
 - [kubespace](https://kubescape.io/) uses a CLI-based approach to patch images, not Kubernetes CRs.

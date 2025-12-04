@@ -96,8 +96,12 @@ spec:
         volumeMounts:
         - name: tmp
           mountPath: /tmp
+        - name: home
+          mountPath: /home/nonroot
       volumes:
       - name: tmp
+        emptyDir: {}
+      - name: home
         emptyDir: {}
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

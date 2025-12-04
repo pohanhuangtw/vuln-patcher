@@ -16,9 +16,6 @@ k8s_yaml(['./hack/buildkit.yaml'])
 # Use a dedicated dev namespace for this project
 namespace_create("vulnpatcher")
 
-# Allow running Tilt against your current K8s context (adjust if needed)
-allow_k8s_contexts('default')
-
 # Build the controller image used by config/manager/manager.yaml
 docker_build(
     'controller:latest',

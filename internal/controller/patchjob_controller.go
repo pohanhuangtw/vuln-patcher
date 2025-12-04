@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,6 +41,10 @@ type PatchJobReconciler struct {
 	PatchContainersHandler *handlers.PatchContainersHandler
 }
 
+func (r *PatchJobReconciler) filterPatchJob(sbomScannerReport sbomscannerv1alpha1.VulnerabilityReport) bool {
+	return strings.Contains(sbomScannerReport.ImageMetadata.Tag, handlers.PatchTagSuffix)
+}
+
 // +kubebuilder:rbac:groups=vulpatcher.kubewarden.io,resources=patchjobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=vulpatcher.kubewarden.io,resources=patchjobs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=vulpatcher.kubewarden.io,resources=patchjobs/finalizers,verbs=update
@@ -58,8 +63,6 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	log := logf.FromContext(ctx)
 	log.Info("reconciling PatchJob", "namespacedName", req.NamespacedName)
 
-	// 2. Try to find the matching VulnerabilityReport from sbomscanner.
-	// We assume a 1:1 mapping: same name + same namespace.
 	var vr sbomscannerv1alpha1.VulnerabilityReport
 	if err := r.Get(ctx, req.NamespacedName, &vr); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -67,17 +70,18 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 				"patchJob", req.NamespacedName)
 			return ctrl.Result{}, nil
 		}
-
-		// Transient error talking to the API server, requeue.
 		return ctrl.Result{}, err
 	}
 
-	// 1. Load the PatchJob (our primary resource)
+	if r.filterPatchJob(vr) {
+		log.Info("PatchJob is not applicable, skipping", "namespacedName", req.NamespacedName, "imageMetadata", vr.ImageMetadata)
+		return ctrl.Result{}, nil
+	}
+
+	log.Info("PatchJob is applicable, patching containers", "namespacedName", req.NamespacedName, "imageMetadata", vr.ImageMetadata)
 	var pj vulpatcherkubewardeniov1alpha1.PatchJob
 	if err := r.Get(ctx, req.NamespacedName, &pj); err != nil {
 		if apierrors.IsNotFound(err) {
-			// PatchJob was deleted, nothing to do.
-			log.V(1).Info("PatchJob not found, nothing to do")
 			err := r.PatchContainersHandler.Handle(ctx, req.NamespacedName)
 			if err != nil {
 				log.Error(err, "error patching containers")
@@ -88,16 +92,12 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		return ctrl.Result{}, err
 	}
 
-	// 3. At this point we know there *is* a VulnerabilityReport.
-	// For now we just log it; later you can add logic to create pods, run copa, update status, etc.
 	log.Info("found VulnerabilityReport for PatchJob",
 		"patchJob", req.NamespacedName,
 		"vrNamespace", vr.Namespace,
 		"vrName", vr.Name,
 		"req.NamespacedName", req.NamespacedName,
 	)
-
-	// TODO(user): implement patching logic based on the contents of the VulnerabilityReport.
 
 	return ctrl.Result{}, nil
 }
