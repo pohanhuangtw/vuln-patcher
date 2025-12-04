@@ -138,7 +138,6 @@ func toTrivyResult(result sbomscannerv1alpha1.Result) trivyTypes.Result {
 
 	for _, vuln := range result.Vulnerabilities {
 		if vuln.Suppressed {
-			// Skip suppressed vulnerabilities or handle separately if needed
 			continue
 		}
 		trivyRes.Vulnerabilities = append(trivyRes.Vulnerabilities, toTrivyVulnerability(vuln))
@@ -161,8 +160,7 @@ func toTrivyVulnerability(vuln sbomscannerv1alpha1.Vulnerability) trivyTypes.Det
 }
 
 func (h *PatchContainersHandler) runCopaCLI(ctx context.Context, vulReport string, vr sbomscannerv1alpha1.VulnerabilityReport) error {
-	// Harcoded
-	bkAddr := "tcp://buildkitd.default.svc.cluster.local:1234"
+	bkAddr := fmt.Sprintf("tcp://%s.%s.svc.cluster.local:1234", vr.ImageMetadata.Registry, vr.Namespace)
 	image := fmt.Sprintf("%s/%s:%s", vr.ImageMetadata.RegistryURI, vr.ImageMetadata.Repository, vr.ImageMetadata.Tag)
 	patchedImage := fmt.Sprintf("%s/%s:%s-%s", vr.ImageMetadata.RegistryURI, vr.ImageMetadata.Repository, vr.ImageMetadata.Tag, PatchTagSuffix)
 
@@ -197,12 +195,11 @@ func (h *PatchContainersHandler) runCopaCLI(ctx context.Context, vulReport strin
 
 	err := cmd.Run()
 
-	// Log the output
 	if stdout.Len() > 0 {
-		h.logger.Info("copa stdout", "output", stdout.String())
+		h.logger.Debug("copa stdout", "output", stdout.String())
 	}
 	if stderr.Len() > 0 {
-		h.logger.Info("copa stderr", "output", stderr.String())
+		h.logger.Error("copa stderr", "output", stderr.String())
 	}
 
 	if err != nil {
@@ -218,12 +215,7 @@ func (h *PatchContainersHandler) runCopaCLI(ctx context.Context, vulReport strin
 }
 
 // Hande to write the vul-report as temp file and run the copa patch command
-func (h *PatchContainersHandler) Handle(ctx context.Context, namespacedName client.ObjectKey) error {
-	var vr sbomscannerv1alpha1.VulnerabilityReport
-	if err := h.k8sClient.Get(ctx, namespacedName, &vr); err != nil {
-		return err
-	}
-
+func (h *PatchContainersHandler) Handle(ctx context.Context, vr sbomscannerv1alpha1.VulnerabilityReport) error {
 	vulReport, err := h.transformSbomScannerToTrivy(vr)
 	if err != nil {
 		return err

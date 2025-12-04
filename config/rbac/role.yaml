@@ -38,3 +38,41 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - buildkit.seatgeek.io
+  resources:
+  - buildkittemplates
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+
+- apiGroups:
+  - buildkit.seatgeek.io
+  resources:
+  - buildkits
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete

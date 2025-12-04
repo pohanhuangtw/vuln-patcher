@@ -40,6 +40,8 @@ import (
 	vulpatcherkubewardeniov1alpha1 "github.com/pohanhuangtw/vuln-patcher/api/v1alpha1"
 	"github.com/pohanhuangtw/vuln-patcher/internal/controller"
 	"github.com/pohanhuangtw/vuln-patcher/internal/handlers"
+	"github.com/pohanhuangtw/vuln-patcher/internal/handlers/buildkit"
+	buildkitapiv1alpha1 "github.com/seatgeek/buildkit-operator/api/v1alpha1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +55,8 @@ func init() {
 
 	utilruntime.Must(vulpatcherkubewardeniov1alpha1.AddToScheme(scheme))
 	utilruntime.Must(sbomscannerv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(buildkitapiv1alpha1.AddToScheme(scheme))
+
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -188,6 +192,7 @@ func main() {
 		PatchContainersHandler: handlers.NewPatchContainersHandler(
 			mgr.GetClient(), mgr.GetScheme(), "ghcr.io/aquasecurity/trivy-java-db",
 			slog.New(slog.NewTextHandler(os.Stdout, nil))),
+		BuildKitHandler: buildkit.NewBuildKitHandler(mgr.GetClient(), mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "PatchJob")
 		os.Exit(1)

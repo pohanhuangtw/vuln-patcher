@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,7 @@ import (
 
 	vulpatcherkubewardeniov1alpha1 "github.com/pohanhuangtw/vuln-patcher/api/v1alpha1"
 	"github.com/pohanhuangtw/vuln-patcher/internal/handlers"
+	"github.com/pohanhuangtw/vuln-patcher/internal/handlers/buildkit"
 )
 
 // PatchJobReconciler reconciles a PatchJob object
@@ -39,6 +41,7 @@ type PatchJobReconciler struct {
 	client.Client
 	Scheme                 *runtime.Scheme
 	PatchContainersHandler *handlers.PatchContainersHandler
+	BuildKitHandler        *buildkit.BuildKitHandler
 }
 
 func (r *PatchJobReconciler) filterPatchJob(sbomScannerReport sbomscannerv1alpha1.VulnerabilityReport) bool {
@@ -82,9 +85,28 @@ func (r *PatchJobReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	var pj vulpatcherkubewardeniov1alpha1.PatchJob
 	if err := r.Get(ctx, req.NamespacedName, &pj); err != nil {
 		if apierrors.IsNotFound(err) {
-			err := r.PatchContainersHandler.Handle(ctx, req.NamespacedName)
+			err := r.BuildKitHandler.PrepareBuildKit(ctx, vr)
+			log.Info("BuildKit prepared, patching containers", "namespacedName", req.NamespacedName, "imageMetadata", vr.ImageMetadata, "error", err)
+			if err != nil {
+				log.Error(err, "error ensuring buildkit deployment")
+				return ctrl.Result{}, err
+			}
+
+			err = r.PatchContainersHandler.Handle(ctx, vr)
 			if err != nil {
 				log.Error(err, "error patching containers")
+				return ctrl.Result{}, err
+			}
+
+			pj = vulpatcherkubewardeniov1alpha1.PatchJob{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      req.NamespacedName.Name,
+					Namespace: vr.Namespace,
+				},
+			}
+			err = r.Create(ctx, &pj)
+			if err != nil {
+				log.Error(err, "error creating patch job")
 				return ctrl.Result{}, err
 			}
 			return ctrl.Result{}, nil
