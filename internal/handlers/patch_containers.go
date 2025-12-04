@@ -19,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const PatchTagSuffix = "patch"
+const PatchTagSuffix = "patched"
 
 type PatchContainersHandler struct {
 	k8sClient             client.Client
