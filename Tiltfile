@@ -37,32 +37,21 @@ k8s_resource(
     'vuln-patcher-controller-manager',
 )
 
-# Create log viewers for each namespace that might have BuildKit pods
-# Each will automatically find the BuildKit pod in that namespace
-def create_buildkit_log_viewer(namespace):
-    """Create a log viewer that finds and follows BuildKit pod in a namespace"""
+# Manually list the expected Buildkit
+buildkits = [
+    {'name': 'dev', 'namespace': 'default'},
+]
+
+for bk in buildkits:
     local_resource(
-        'buildkit-logs-%s' % namespace,
-        '''#!/bin/bash
-# Find BuildKit pod in namespace
-pod=$(kubectl get pods -n %s -l app.kubernetes.io/name=buildkit -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-
-if [ -z "$pod" ]; then
-    echo "No BuildKit pod found in namespace %s. Waiting..."
-    while [ -z "$pod" ]; do
-        sleep 2
-        pod=$(kubectl get pods -n %s -l app.kubernetes.io/name=buildkit -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-    done
-fi
-
-echo "Following logs for BuildKit pod: %s/$pod"
-kubectl logs -n %s "$pod" -f --tail=100
-''' % (namespace, namespace, namespace, namespace, namespace),
+        'buildkit-logs-%s' % bk['name'],
+        serve_cmd='''
+echo "Waiting for BuildKit pod %s..."
+until kubectl get pods -n %s -l buildkit.seatgeek.io/name=%s 2>/dev/null | grep -q Running; do
+    sleep 3
+done
+kubectl logs -n %s -l buildkit.seatgeek.io/name=%s -f --tail=100
+''' % (bk['name'], bk['namespace'], bk['name'], bk['namespace'], bk['name']),
         resource_deps=['buildkit-operator'],
         labels=['buildkit'],
-        ignore=['.'],
     )
-
-# Create log viewers for common namespaces
-for ns in ['default', 'vulnpatcher']:
-    create_buildkit_log_viewer(ns)
